@@ -26,16 +26,16 @@ import tqdm
 np.random.seed(1024)  # set the same seed
 
 parser = argparse.ArgumentParser(description="arg parser")
-parser.add_argument('--cfg_file', type=str, default='cfgs/default.yml', help='specify the config for evaluation')
-parser.add_argument("--eval_mode", type=str, default='rpn', required=True, help="specify the evaluation mode")
+parser.add_argument('--cfg_file', type=str, default='/home/nku524/dl/codebase/PointRCNN/tools/cfgs/default.yaml', help='specify the config for evaluation')
+parser.add_argument("--eval_mode", type=str, default='rcnn', required=False, help="specify the evaluation mode")
 
 parser.add_argument('--eval_all', action='store_true', default=False, help='whether to evaluate all checkpoints')
 parser.add_argument('--test', action='store_true', default=False, help='evaluate without ground truth')
-parser.add_argument("--ckpt", type=str, default=None, help="specify a checkpoint to be evaluated")
+parser.add_argument("--ckpt", type=str, default="PointRCNN.pth", help="specify a checkpoint to be evaluated")
 parser.add_argument("--rpn_ckpt", type=str, default=None, help="specify the checkpoint of rpn if trained separated")
 parser.add_argument("--rcnn_ckpt", type=str, default=None, help="specify the checkpoint of rcnn if trained separated")
 
-parser.add_argument('--batch_size', type=int, default=1, help='batch size for evaluation')
+parser.add_argument('--batch_size', type=int, default=4, help='batch size for evaluation')
 parser.add_argument('--workers', type=int, default=4, help='number of workers for dataloader')
 parser.add_argument("--extra_tag", type=str, default='default', help="extra tag for multiple evaluation")
 parser.add_argument('--output_dir', type=str, default=None, help='specify an output directory if needed')
@@ -51,10 +51,11 @@ parser.add_argument("--rcnn_eval_roi_dir", type=str, default=None,
                     help='specify the saved rois for rcnn evaluation when using rcnn_offline mode')
 parser.add_argument("--rcnn_eval_feature_dir", type=str, default=None,
                     help='specify the saved features for rcnn evaluation when using rcnn_offline mode')
-parser.add_argument('--set', dest='set_cfgs', default=None, nargs=argparse.REMAINDER,
+parser.add_argument('--set', dest='set_cfgs', default=['RPN.LOC_XZ_FINE', 'False'], nargs=argparse.REMAINDER,
                     help='set extra config keys if needed')
 args = parser.parse_args()
 
+torch.cuda.set_device(1)
 
 def create_logger(log_file):
     log_format = '%(asctime)s  %(levelname)5s  %(message)s'
@@ -900,3 +901,6 @@ if __name__ == "__main__":
             repeat_eval_ckpt(root_result_dir, ckpt_dir)
         else:
             eval_single_ckpt(root_result_dir)
+
+if __name__ == '__main__':
+    pass
