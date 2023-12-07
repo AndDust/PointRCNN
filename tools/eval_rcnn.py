@@ -1,3 +1,17 @@
+from __future__ import print_function
+import torch.nn as nn
+import copy
+import datetime
+
+from quant import (
+    block_reconstruction,
+    layer_reconstruction,
+    BaseQuantBlock,
+    QuantModule,
+    QuantModel,
+    set_weight_quantize_params,
+)
+
 import _init_path
 import os
 import numpy as np
@@ -53,9 +67,336 @@ parser.add_argument("--rcnn_eval_feature_dir", type=str, default=None,
                     help='specify the saved features for rcnn evaluation when using rcnn_offline mode')
 parser.add_argument('--set', dest='set_cfgs', default=['RPN.LOC_XZ_FINE', 'False'], nargs=argparse.REMAINDER,
                     help='set extra config keys if needed')
+
+
+
+# TODO "新增的参数"
+# parser = argparse.ArgumentParser(description='running parameters',
+#                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+# general parameters for data and model
+parser.add_argument('--seed', default=1005, type=int, help='random seed for results reproduction')
+parser.add_argument('--arch', default='resnet18', type=str, help='model name',
+                    choices=['resnet18', 'resnet50', 'mobilenetv2', 'regnetx_600m', 'regnetx_3200m', 'mnasnet'])
+# parser.add_argument('--batch_size', default=64, type=int, help='mini-batch size for data loader')
+# parser.add_argument('--workers', default=4, type=int, help='number of workers for data loader')
+"""
+    数据集路径
+"""
+parser.add_argument('--data_path', default='/home/nku524/dl/dataset/imageNet-1k', type=str,
+                    help='path to ImageNet data')
+# quantization parameters
+"""
+    量化参数
+    n_bits_w ： 权重量化位宽
+    n_bits_a ： 激活量化位宽
+    channel_wise ： 权重是否按通道量化，默认为True
+"""
+parser.add_argument('--n_bits_w', default=4, type=int, help='bitwidth for weight quantization')
+parser.add_argument('--channel_wise', default=True, help='apply channel_wise quantization for weights')
+parser.add_argument('--n_bits_a', default=4, type=int, help='bitwidth for activation quantization')
+parser.add_argument('--disable_8bit_head_stem', action='store_true')
+
+"""权重校准参数"""
+# weight calibration parameters
+parser.add_argument('--num_samples', default=1024, type=int, help='size of the calibration dataset')
+parser.add_argument('--iters_w', default=20000, type=int, help='number of iteration for adaround')
+
+"""
+    舍入成本与重建损失的权重
+"""
+parser.add_argument('--weight', default=0.01, type=float, help='weight of rounding cost vs the reconstruction loss.')
+parser.add_argument('--keep_cpu', action='store_true', help='keep the calibration data on cpu')
+
+parser.add_argument('--b_start', default=20, type=int, help='temperature at the beginning of calibration')
+parser.add_argument('--b_end', default=2, type=int, help='temperature at the end of calibration')
+parser.add_argument('--warmup', default=0.2, type=float, help='in the warmup period no regularization is applied')
+
+"""激活校准参数"""
+# activation calibration parameters
+parser.add_argument('--lr', default=4e-5, type=float, help='learning rate for LSQ')
+"""
+
+"""
+parser.add_argument('--init_wmode', default='mse', type=str, choices=['minmax', 'mse', 'minmax_scale'],
+                    help='init opt mode for weight')
+parser.add_argument('--init_amode', default='mse', type=str, choices=['minmax', 'mse', 'minmax_scale'],
+                    help='init opt mode for activation')
+
+parser.add_argument('--prob', default=0.5, type=float)
+parser.add_argument('--input_prob', default=0.5, type=float)
+"""
+    正则化的超参数
+"""
+parser.add_argument('--lamb_r', default=0.1, type=float, help='hyper-parameter for regularization')
+"""
+    KL发散的温度系数
+"""
+parser.add_argument('--T', default=4.0, type=float, help='temperature coefficient for KL divergence')
+parser.add_argument('--bn_lr', default=1e-3, type=float, help='learning rate for DC')
+"""
+    DC的超参数
+"""
+parser.add_argument('--lamb_c', default=0.02, type=float, help='hyper-parameter for DC')
+
+# TODO pointnet需要的参数
+parser.add_argument(
+    '--batchSize', type=int, default=32, help='input batch size')
+parser.add_argument(
+    '--num_points', type=int, default=2500, help='input batch size')
+# parser.add_argument(
+#     '--workers', type=int, help='number of data loading workers', default=4)
+parser.add_argument(
+    '--nepoch', type=int, default=2, help='number of epochs to train for')
+parser.add_argument('--outf', type=str, default='cls', help='output folder')
+parser.add_argument('--model', type=str, default='', help='model path')
+# parser.add_argument('--dataset', type=str, required=True, help="dataset path")
+parser.add_argument('--dataset', type=str,
+                    default='/home/nku524/dl/dataset/shapenetcore_partanno_segmentation_benchmark_v0',
+                    help="dataset path")
+parser.add_argument('--dataset_type', type=str, default='shapenet', help="dataset type shapenet|modelnet40")
+parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
+
+parser.add_argument(
+    '--setgpu', type=int, help='cuda:0?1', default=1)
+parser.add_argument(
+    '--a_count', type=int, help='', default=1)
+parser.add_argument(
+    '--record', type=str, help='', default="")
+parser.add_argument(
+    '--pointRCNN_num_samples', type=int, help='', default=128)
+
+parser.add_argument("--rcnn_training_roi_dir", type=str, default=None,
+                    help='specify the saved rois for rcnn training when using rcnn_offline mode')
+parser.add_argument("--rcnn_training_feature_dir", type=str, default=None,
+                    help='specify the saved features for rcnn training when using rcnn_offline mode')
+parser.add_argument("--gt_database", type=str, default='gt_database/train_gt_database_3level_Car.pkl',
+                    help='generated gt database for augmentation')
+
+
 args = parser.parse_args()
 
 torch.cuda.set_device(1)
+
+def create_PointRCNN_dataloader(logger):
+    DATA_PATH = os.path.join('../', 'data')
+
+    # create dataloader
+    train_set = KittiRCNNDataset(root_dir=DATA_PATH, npoints=cfg.RPN.NUM_POINTS, split=cfg.TRAIN.SPLIT, mode='TRAIN',
+                                 logger=logger,
+                                 classes=cfg.CLASSES,
+                                 rcnn_training_roi_dir=args.rcnn_training_roi_dir,
+                                 rcnn_training_feature_dir=args.rcnn_training_feature_dir,
+                                 gt_database_dir=args.gt_database)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, pin_memory=True,
+                              num_workers=args.workers, shuffle=True, collate_fn=train_set.collate_batch,
+                              drop_last=True)
+
+    # if args.train_with_eval:
+    #     test_set = KittiRCNNDataset(root_dir=DATA_PATH, npoints=cfg.RPN.NUM_POINTS, split=cfg.TRAIN.VAL_SPLIT, mode='EVAL',
+    #                                 logger=logger,
+    #                                 classes=cfg.CLASSES,
+    #                                 rcnn_eval_roi_dir=args.rcnn_eval_roi_dir,
+    #                                 rcnn_eval_feature_dir=args.rcnn_eval_feature_dir)
+    #     test_loader = DataLoader(test_set, batch_size=1, shuffle=True, pin_memory=True,
+    #                              num_workers=args.workers, collate_fn=test_set.collate_batch)
+    # else:
+    #     test_loader = None
+    # return train_loader, test_loader
+    return train_loader
+
+def get_train_samples(train_loader, num_samples):
+    # train_data, target = [], []
+    # for batch in train_loader:
+    #     train_data.append(batch[0])
+    #     target.append(batch[1])
+    #     if len(train_data) * batch[0].size(0) >= num_samples:
+    #         break
+    # return torch.cat(train_data, dim=0)[:num_samples], torch.cat(target, dim=0)[:num_samples]
+    collected_data = {}
+
+    for batch_data in train_loader:
+        for key in batch_data.keys():
+            # 确保每个key对应的列表在collected_data中被初始化
+            if key not in collected_data:
+                collected_data[key] = []
+
+            for item in batch_data[key]:
+                if len(collected_data[key]) < num_samples:
+                    collected_data[key].append(item)
+                else:
+                    break
+
+        # 检查是否已经收集了足够的数据
+        if all(len(items) >= num_samples for items in collected_data.values()):
+            break
+
+    # 裁剪每个键的列表以确保只有num_samples个元素
+    for key in collected_data.keys():
+        collected_data[key] = collected_data[key][:num_samples]
+
+    return collected_data
+
+
+def get_qnn_model(model):
+    # build imagenet data loader
+
+    # train_loader, test_loader = build_imagenet_data(batch_size=args.batch_size, workers=args.workers,
+    #                                                 data_path=args.data_path)
+    # # TODO pointnet 数据集 准备
+    #
+    #
+    # dataloader = torch.utils.data.DataLoader(
+    #     dataset,
+    #     batch_size=args.batchSize,
+    #     shuffle=True,
+    #     num_workers=int(args.workers))
+    #
+    # testdataloader = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     batch_size=args.batchSize,
+    #     shuffle=True,
+    #     num_workers=int(args.workers))
+    #
+    # print(len(dataset), len(test_dataset))
+    # num_classes = len(dataset.classes)
+    # print('classes', num_classes)
+    #
+    # try:
+    #     os.makedirs(args.outf)
+    # except OSError:
+    #     pass
+
+    # load model
+    # 加载模型
+    if args.cfg_file is not None:
+        cfg_from_file(args.cfg_file)
+    cfg.TAG = os.path.splitext(os.path.basename(args.cfg_file))[0]
+
+    if args.eval_mode == 'rpn':
+        cfg.RPN.ENABLED = True
+        cfg.RCNN.ENABLED = False
+        root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
+    elif args.eval_mode == 'rcnn':
+        cfg.RCNN.ENABLED = True
+        cfg.RPN.ENABLED = cfg.RPN.FIXED = True
+        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+    elif args.eval_mode == 'rcnn_offline':
+        cfg.RCNN.ENABLED = True
+        cfg.RPN.ENABLED = False
+        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+    else:
+        raise NotImplementedError
+
+    if args.output_dir is not None:
+        root_result_dir = args.output_dir
+    os.makedirs(root_result_dir, exist_ok=True)
+
+    log_file = os.path.join(root_result_dir, 'log_train.txt')
+    logger = create_logger(log_file)
+    logger.info('**********************Start logging**********************')
+
+
+
+    # TODO 加载pointnet模型
+    model.cuda()  # 将模型移动到GPU上
+    model.eval()  # 设置模型为评估模式
+
+    fp_model = copy.deepcopy(model)  # 深度复制模型
+    fp_model.cuda()  # 将复制的模型移动到GPU上
+    fp_model.eval()  # 设置复制的模型为评估模式
+
+    # build quantization parameters
+    wq_params = {'n_bits': args.n_bits_w, 'channel_wise': args.channel_wise, 'scale_method': args.init_wmode}
+    aq_params = {'n_bits': args.n_bits_a, 'channel_wise': False, 'scale_method': args.init_amode,
+                 'leaf_param': True, 'prob': args.prob}
+
+    fp_model = QuantModel(model=fp_model, weight_quant_params=wq_params, act_quant_params=aq_params, is_fusing=False)
+    fp_model.cuda()  # 将量化模型移动到GPU上
+    fp_model.eval()  # 设置量化模型为评估模式
+    """fp_model只是用来对比，不需要开启量化"""
+    fp_model.set_quant_state(False, False)  # 关闭量化状态
+
+    """
+       qnn是经过BN fold和开启量化状态的 （is_fusing=True）
+    """
+    qnn = QuantModel(model=model, weight_quant_params=wq_params, act_quant_params=aq_params)
+    qnn.cuda()
+    qnn.eval()
+
+    if not args.disable_8bit_head_stem:
+        print('Setting the first and the last layer to 8-bit')
+        qnn.set_first_last_layer_to_8bit()
+
+    """禁用神经网络中最后一个量化模块（QuantModule）的激活量化。"""
+    qnn.disable_network_output_quantization()
+
+    """得到量化后的模型"""
+    print('the quantized model is below!')
+    print(qnn)
+
+    PointRCNN_dataloader = create_PointRCNN_dataloader(logger)
+    pointnet_cali_data = get_train_samples(PointRCNN_dataloader, num_samples=args.pointRCNN_num_samples)
+
+    # cali_data, cali_target = get_train_samples(train_loader, num_samples=args.num_samples)
+    device = next(qnn.parameters()).device
+
+    # Kwargs for weight rounding calibration
+    """
+        用于权重舍入校准的Kwargs
+    """
+    kwargs = dict(cali_data=pointnet_cali_data, iters=args.iters_w, weight=args.weight,
+                  b_range=(args.b_start, args.b_end), warmup=args.warmup, opt_mode='mse',
+                  lr=args.lr, input_prob=args.input_prob, keep_gpu=not args.keep_cpu,
+                  lamb_r=args.lamb_r, T=args.T, bn_lr=args.bn_lr, lamb_c=args.lamb_c, a_count=args.a_count)
+
+    set_weight_quantize_params(qnn)
+
+    """
+        重建: 重建就是让量化模型和FP模型的输出尽量保持一致,对量化模型的算子进行了重建,因为直接量化性能下降很多
+    """
+
+    def set_weight_act_quantize_params(module, fp_module):
+        if isinstance(module, QuantModule):
+            """
+                传入完整的qnn、fp_model和当前的module、fp_module
+            """
+            layer_reconstruction(qnn, fp_model, module, fp_module, **kwargs)
+        elif isinstance(module, BaseQuantBlock):
+            block_reconstruction(qnn, fp_model, module, fp_module, **kwargs)
+        else:
+            raise NotImplementedError
+
+    """
+        区块重建。对于第一层和最后一层，我们只能应用层重建。
+    """
+
+    # a_count = 0
+    def recon_model(model: nn.Module, fp_model: nn.Module):
+        """
+            Block reconstruction. For the first and last layers, we can only apply layer reconstruction.
+        """
+        for (name, module), (_, fp_module) in zip(model.named_children(), fp_model.named_children()):
+            if isinstance(module, QuantModule):
+                print('Reconstruction for layer {}'.format(name))
+                # set_weight_act_quantize_params(module, fp_module)
+            elif isinstance(module, BaseQuantBlock):
+                """比如对于ResNet里的包含conv BN Relu的block，在block层面再做一次"""
+                print('Reconstruction for block {}'.format(name))
+                # set_weight_act_quantize_params(module, fp_module)
+            else:
+                recon_model(module, fp_module)
+
+    """
+        开始校准
+    """
+    # Start calibration
+    recon_model(qnn, fp_model)
+    #
+    """qnn设置量化状态为True"""
+    qnn.set_quant_state(weight_quant=True, act_quant=True)
+
+    return qnn
+
 
 def create_logger(log_file):
     log_format = '%(asctime)s  %(levelname)5s  %(message)s'
@@ -762,8 +1103,13 @@ def eval_single_ckpt(root_result_dir):
     # load checkpoint
     load_ckpt_based_on_args(model, logger)
 
+    """
+        把模型进行量化，得到量化后的模型进行test
+    """
+    qnn = get_qnn_model(model)
+
     # start evaluation
-    eval_one_epoch(model, test_loader, epoch_id, root_result_dir, logger)
+    eval_one_epoch(qnn, test_loader, epoch_id, root_result_dir, logger)
 
 
 def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file):

@@ -20,13 +20,9 @@ from quant import (
 )
 from data.imagenet import build_imagenet_data
 
-from pointnet import model as point_model
-
 import torch.nn.parallel
 import torch.optim as optim
 import torch.utils.data
-from pointnet.dataset import ShapeNetDataset, ModelNetDataset
-from pointnet.model import PointNetCls, feature_transform_regularizer
 import torch.nn.functional as F
 from tqdm import tqdm
 
