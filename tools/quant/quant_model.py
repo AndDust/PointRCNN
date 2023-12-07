@@ -2,7 +2,7 @@ import torch.nn as nn
 from .quant_block import specials, BaseQuantBlock
 from .quant_layer import QuantModule, StraightThrough, UniformAffineQuantizer
 from .fold_bn import search_fold_and_remove_bn
-
+import pointnet2_lib.pointnet2.pytorch_utils as pt_utils
 
 class QuantModel(nn.Module):
     def __init__(self, model: nn.Module, weight_quant_params: dict = {}, act_quant_params: dict = {}, is_fusing=True):
@@ -91,9 +91,14 @@ class QuantModel(nn.Module):
                     如果找到nn.BatchNorm2d层，并且在此之前有一个QuantModule，则将nn.BatchNorm2d层的功能与前一个QuantModule相关联，
                     并用StraightThrough层替换原始的nn.BatchNorm2d层。
                 """
-            elif isinstance(child_module, (nn.BatchNorm2d, nn.BatchNorm1d)):
+            elif isinstance(child_module, (pt_utils.BatchNorm2d, pt_utils.BatchNorm1d)):
                 if prev_quantmodule is not None:
-                    prev_quantmodule.norm_function = child_module
+                    tmp_module = None
+                    for m in child_module.modules():
+                        if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
+                            tmp_module = m
+                            break
+                    prev_quantmodule.norm_function = tmp_module
                     setattr(module, name, StraightThrough())
                 else:
                     continue

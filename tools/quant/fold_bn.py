@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
+import pointnet2_lib.pointnet2.pytorch_utils as pt_utils
 
 
 class StraightThrough(nn.Module):
@@ -77,7 +78,7 @@ def reset_bn(module: nn.BatchNorm2d):
 
 
 def is_bn(m):
-    return isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d)
+    return isinstance(m, pt_utils.BatchNorm2d) or isinstance(m, pt_utils.BatchNorm1d)
 
 
 def is_absorbing(m):
@@ -96,7 +97,13 @@ def search_fold_and_remove_bn(model):
         """判断该层是否是BN层，并且前一层是卷积层或线性层（即能够被前一层吸收）"""
         if is_bn(m) and is_absorbing(prev):
             """进行BN折叠"""
-            fold_bn_into_conv(prev, m)
+            tmp_module = None
+            for module in m.modules():
+                if isinstance(module, (nn.BatchNorm2d, nn.BatchNorm1d)):
+                    tmp_module = module
+                    break
+
+            fold_bn_into_conv(prev, tmp_module)
             # set the bn module to straight through
             """
                 原BN层会被替换为一个直通（Straight Through）层，

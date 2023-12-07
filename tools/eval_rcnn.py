@@ -237,56 +237,30 @@ def get_train_samples(train_loader, num_samples):
     return collected_data
 
 
-def get_qnn_model(model):
-    # build imagenet data loader
-
-    # train_loader, test_loader = build_imagenet_data(batch_size=args.batch_size, workers=args.workers,
-    #                                                 data_path=args.data_path)
-    # # TODO pointnet 数据集 准备
-    #
-    #
-    # dataloader = torch.utils.data.DataLoader(
-    #     dataset,
-    #     batch_size=args.batchSize,
-    #     shuffle=True,
-    #     num_workers=int(args.workers))
-    #
-    # testdataloader = torch.utils.data.DataLoader(
-    #     test_dataset,
-    #     batch_size=args.batchSize,
-    #     shuffle=True,
-    #     num_workers=int(args.workers))
-    #
-    # print(len(dataset), len(test_dataset))
-    # num_classes = len(dataset.classes)
-    # print('classes', num_classes)
-    #
-    # try:
-    #     os.makedirs(args.outf)
-    # except OSError:
-    #     pass
+def get_qnn_model(PointRCNN_model):
 
     # load model
     # 加载模型
-    if args.cfg_file is not None:
-        cfg_from_file(args.cfg_file)
-    cfg.TAG = os.path.splitext(os.path.basename(args.cfg_file))[0]
+    # if args.cfg_file is not None:
+    #     cfg_from_file(args.cfg_file)
+    # cfg.TAG = os.path.splitext(os.path.basename(args.cfg_file))[0]
+    #
+    # if args.eval_mode == 'rpn':
+    #     cfg.RPN.ENABLED = True
+    #     cfg.RCNN.ENABLED = False
+    #     root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
+    # elif args.eval_mode == 'rcnn':
+    #     cfg.RCNN.ENABLED = True
+    #     cfg.RPN.ENABLED = cfg.RPN.FIXED = True
+    #     root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+    # elif args.eval_mode == 'rcnn_offline':
+    #     cfg.RCNN.ENABLED = True
+    #     cfg.RPN.ENABLED = False
+    #     root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+    # else:
+    #     raise NotImplementedError
 
-    if args.eval_mode == 'rpn':
-        cfg.RPN.ENABLED = True
-        cfg.RCNN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
-    elif args.eval_mode == 'rcnn':
-        cfg.RCNN.ENABLED = True
-        cfg.RPN.ENABLED = cfg.RPN.FIXED = True
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-    elif args.eval_mode == 'rcnn_offline':
-        cfg.RCNN.ENABLED = True
-        cfg.RPN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-    else:
-        raise NotImplementedError
-
+    root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
     if args.output_dir is not None:
         root_result_dir = args.output_dir
     os.makedirs(root_result_dir, exist_ok=True)
@@ -298,10 +272,10 @@ def get_qnn_model(model):
 
 
     # TODO 加载pointnet模型
-    model.cuda()  # 将模型移动到GPU上
-    model.eval()  # 设置模型为评估模式
+    PointRCNN_model.cuda()  # 将模型移动到GPU上
+    PointRCNN_model.eval()  # 设置模型为评估模式
 
-    fp_model = copy.deepcopy(model)  # 深度复制模型
+    fp_model = copy.deepcopy(PointRCNN_model)  # 深度复制模型
     fp_model.cuda()  # 将复制的模型移动到GPU上
     fp_model.eval()  # 设置复制的模型为评估模式
 
@@ -319,7 +293,7 @@ def get_qnn_model(model):
     """
        qnn是经过BN fold和开启量化状态的 （is_fusing=True）
     """
-    qnn = QuantModel(model=model, weight_quant_params=wq_params, act_quant_params=aq_params)
+    qnn = QuantModel(model=PointRCNN_model, weight_quant_params=wq_params, act_quant_params=aq_params)
     qnn.cuda()
     qnn.eval()
 
@@ -378,11 +352,11 @@ def get_qnn_model(model):
         for (name, module), (_, fp_module) in zip(model.named_children(), fp_model.named_children()):
             if isinstance(module, QuantModule):
                 print('Reconstruction for layer {}'.format(name))
-                # set_weight_act_quantize_params(module, fp_module)
+                set_weight_act_quantize_params(module, fp_module)
             elif isinstance(module, BaseQuantBlock):
                 """比如对于ResNet里的包含conv BN Relu的block，在block层面再做一次"""
                 print('Reconstruction for block {}'.format(name))
-                # set_weight_act_quantize_params(module, fp_module)
+                set_weight_act_quantize_params(module, fp_module)
             else:
                 recon_model(module, fp_module)
 
