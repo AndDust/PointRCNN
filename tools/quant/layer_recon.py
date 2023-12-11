@@ -88,8 +88,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
     :param bn_lr: learning rate for DC
     :param lamb_c: hyper-parameter for DC
     """
-    global num
-    num += 1
+    # global num
+    # num += 1
     '''get input and set scale'''
 
     """
@@ -103,7 +103,7 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
     """
         这一步输入fp_model和fp_layer
         Start correcting 32 batches of data!
-        
+
         cached_outs.shape : torch.Size([1024, 64, 112, 112])
         cached_output.shape : torch.Size([1024, 1000])
         cur_syms.shape : torch.Size( [1024, 3, 224, 224])
@@ -126,11 +126,11 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
 
     return
 
-    if num != a_count:
-        print(f"第{num}个算子，完成了激活初始化，该层不执行重构")
-        return
+    # if num != a_count:
+    #     print(f"第{num}个算子，完成了激活初始化，该层不执行重构")
+    #     return
 
-    print(f"第{num}个算子，该层重构！！！")
+    # print(f"第{num}个算子，该层重构！！！")
     '''set state'''
 
     cur_weight, cur_act = True, True
@@ -224,7 +224,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         """
         cur_inp = cached_inps[idx].to(device)
         cur_sym = cur_syms[idx].to(device)
-        output_fp = cached_output[idx].to(device)
+        # output_fp = cached_output[idx].to(device)
+        output_fp = None
         cur_out = cached_outs[idx].to(device)
 
         if input_prob < 1.0:

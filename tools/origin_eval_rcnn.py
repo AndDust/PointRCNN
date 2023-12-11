@@ -55,7 +55,7 @@ parser.add_argument('--set', dest='set_cfgs', default=['RPN.LOC_XZ_FINE', 'False
                     help='set extra config keys if needed')
 args = parser.parse_args()
 
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 
 def create_logger(log_file):
     log_format = '%(asctime)s  %(levelname)5s  %(message)s'
@@ -489,9 +489,13 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger):
         sample_id, pts_rect, pts_features, pts_input = \
             data['sample_id'], data['pts_rect'], data['pts_features'], data['pts_input']
         batch_size = len(sample_id)
+        batch_size = len(sample_id)
         inputs = torch.from_numpy(pts_input).cuda(non_blocking=True).float()
         input_data = {'pts_input': inputs}
 
+        print(type(input_data))
+        print(input_data.keys())
+        print(input_data["pts_input"].shape)
         # model inference
         ret_dict = model(input_data)
 

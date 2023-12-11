@@ -163,7 +163,7 @@ parser.add_argument(
 parser.add_argument(
     '--record', type=str, help='', default="")
 parser.add_argument(
-    '--pointRCNN_num_samples', type=int, help='', default=128)
+    '--pointRCNN_num_samples', type=int, help='', default=4)
 
 parser.add_argument("--rcnn_training_roi_dir", type=str, default=None,
                     help='specify the saved rois for rcnn training when using rcnn_offline mode')
@@ -175,7 +175,7 @@ parser.add_argument("--gt_database", type=str, default='gt_database/train_gt_dat
 
 args = parser.parse_args()
 
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 
 def create_PointRCNN_dataloader(logger):
     DATA_PATH = os.path.join('../', 'data')
@@ -234,7 +234,18 @@ def get_train_samples(train_loader, num_samples):
     for key in collected_data.keys():
         collected_data[key] = collected_data[key][:num_samples]
 
-    return collected_data
+    # return collected_data
+
+    sample_id, pts_rect, pts_features, pts_input = \
+        collected_data['sample_id'], collected_data['pts_rect'], collected_data['pts_features'], collected_data['pts_input']
+
+    pts_input = np.stack(pts_input)
+    print(type(pts_input))
+    print(pts_input.shape)
+    inputs = torch.from_numpy(pts_input).cuda(non_blocking=True).float()
+    input_data = {'pts_input': inputs}
+
+    return input_data
 
 
 def get_qnn_model(PointRCNN_model):
@@ -285,8 +296,8 @@ def get_qnn_model(PointRCNN_model):
                  'leaf_param': True, 'prob': args.prob}
 
     fp_model = QuantModel(model=fp_model, weight_quant_params=wq_params, act_quant_params=aq_params, is_fusing=False)
-    fp_model.cuda()  # 将量化模型移动到GPU上
-    fp_model.eval()  # 设置量化模型为评估模式
+    fp_model.cuda()
+    fp_model.eval()
     """fp_model只是用来对比，不需要开启量化"""
     fp_model.set_quant_state(False, False)  # 关闭量化状态
 
@@ -565,6 +576,7 @@ def eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger):
                     total_gt_bbox, cur_recall))
         ret_dict['rpn_recall(thresh=%.2f)' % thresh] = cur_recall
     logger.info('result is saved to: %s' % result_dir)
+    logger.info(f'----------量化参数： W{args.n_bits_w}A{args.n_bits_a}')
 
     return ret_dict
 
@@ -1082,6 +1094,7 @@ def eval_single_ckpt(root_result_dir):
     """
     qnn = get_qnn_model(model)
 
+    # TODO 把test_loader换成训练集的数据
     # start evaluation
     eval_one_epoch(qnn, test_loader, epoch_id, root_result_dir, logger)
 

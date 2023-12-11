@@ -30,11 +30,12 @@ def get_dc_fp_init(model, block, cali_data, batch_size, input_prob: bool = False
     return cached_outs, cached_outputs, cached_sym
 
 def set_weight_quantize_params(model):
+    print("----+++++++++++++++")
     for module in model.modules():
+        print("----+++++-0----=++===+++")
         if isinstance(module, QuantModule):
             """将量化器的初始化状态设置为未完成，以后进行初始化操作"""
             module.weight_quantizer.set_inited(False)
-
             '''
                 对每个module权重部分的量化
                 caculate the step size and zero point for weight quantizer

@@ -529,37 +529,14 @@ class QuantModule(nn.Module):
         # 使用权重量化
         if self.use_weight_quant:
             """对权重进行量化"""
-            # print("---------------------------------------------------------")
-            # print("Org_weight_shape:{}".format(self.org_weight.shape))
-            # print("Org_weight:{}".format(self.org_weight.flatten()[0:10]))
-            # print("delta:{} & zero_point:{}".format(self.weight_quantizer.delta.flatten(), self.weight_quantizer.zero_point.flatten()))
             weight = self.weight_quantizer(self.weight)
-            # print("Quantized_weight:{}".format(weight.flatten()[0:10]))
-            # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             bias = self.bias
         # 不使用权重量化
         else:
             weight = self.org_weight
             bias = self.org_bias
 
-        # out = torch.tensor([0])
-        # try:
-        #     out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
-        # except:
-        #     print(self.fwd_func)
-        # print("----------++++++++--------")
-        # print(input.shape)
-        # print(self.fwd_func)
-        # print(weight.shape)
-        # print(self.org_weight.shape)
-
         out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
-
-        """
-            出错：
-            input : torch.Size([32, 1024, 2500])
-            weight : torch.Size([512, 1024])
-        """
 
         # disable act quantization is designed for convolution before elemental-wise operation,
         # in that case, we apply activation function and quantization after ele-wise op.
