@@ -339,7 +339,6 @@ def get_qnn_model(PointRCNN_model):
     """
         重建: 重建就是让量化模型和FP模型的输出尽量保持一致,对量化模型的算子进行了重建,因为直接量化性能下降很多
     """
-
     def set_weight_act_quantize_params(module, fp_module):
         if isinstance(module, QuantModule):
             """
@@ -1092,7 +1091,9 @@ def eval_single_ckpt(root_result_dir):
     """
         把模型进行量化，得到量化后的模型进行test
     """
-    qnn = get_qnn_model(model)
+    qnn = None
+    with torch.enable_grad():
+        qnn = get_qnn_model(model)
 
     # TODO 把test_loader换成训练集的数据
     # start evaluation
