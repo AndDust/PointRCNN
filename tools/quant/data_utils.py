@@ -18,7 +18,7 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
 
 
     get_inp_out = GetDcFpLayerInpOut(model, layer, device=device, input_prob=input_prob, lamb=lamb, bn_lr=bn_lr)
-    cached_batches = ()
+    cached_batches = []
 
     """
         开始DC分布校准
@@ -43,37 +43,52 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
     #     cached_sym = torch.cat([x[2] for x in cached_batches])
     # torch.cuda.empty_cache()
 
-    """如果进行DC分布校准"""
-    if input_prob:
-        cur_out, out_fp, cur_sym = get_inp_out(cali_data)
-        cached_batches = ((cur_out.cpu(), out_fp, cur_sym.cpu()))
-        """不进行DC分布校正"""
-    else:
-        cur_out, out_fp = get_inp_out(cali_data)
-        cached_batches = ((cur_out.cpu(), out_fp))
+    # """如果进行DC分布校准"""
+    # if input_prob:
+    #     cur_out, out_fp, cur_sym = get_inp_out(cali_data)
+    #     cached_batches = ((cur_out.cpu(), out_fp, cur_sym.cpu()))
+    #     """不进行DC分布校正"""
+    # else:
+    #     cur_out, out_fp = get_inp_out(cali_data)
+    #     cached_batches = ((cur_out.cpu(), out_fp))
+    #
+    # """拼接多个batch"""
+    # cached_outs = cached_batches[0]
+    # cached_outputs = cached_batches[1]
+    # if input_prob:
+    #     cached_sym = cached_batches[2]
+    # torch.cuda.empty_cache()
 
-    """拼接多个batch"""
-    cached_outs = cached_batches[0]
-    cached_outputs = cached_batches[1]
-    if input_prob:
-        cached_sym = cached_batches[2]
-    torch.cuda.empty_cache()
+    num_batches = max(1, int(cali_data["pts_input"].size(0) / batch_size))
 
-    if keep_gpu:
-        cached_outs = cached_outs.to(device)
-        cached_outputs_to_device = {key: value.to(device) for key, value in cached_outputs.items()}
-        # cached_outputs = cached_outputs.to(device)
+    print("Start correcting {} batches of data!".format(num_batches))
+
+    for i in trange(num_batches):
+        # 获取当前批次的数据，并确保索引不越界
+        cur_data = {"pts_input": cali_data["pts_input"][i * batch_size:min((i + 1) * batch_size, cali_data["pts_input"].size(0))]}
 
         if input_prob:
-            cached_sym = cached_sym.to(device)
+            # 进行DC分布校准
+            cur_out, out_fp, cur_sym = get_inp_out(cur_data)
+            cached_batches.append((cur_out.cpu(), out_fp.cpu(), cur_sym.cpu()))
+        else:
+            # 不进行DC分布校正
+            cur_out, out_fp = get_inp_out(cur_data)
+            cached_batches.append((cur_out.cpu(), out_fp.cpu()))
+
+    # 拼接多个batch
+    cached_outs = torch.cat([x[0] for x in cached_batches])
+    cached_outputs = torch.cat([x[1] for x in cached_batches])
     if input_prob:
-        cached_outs.requires_grad = False
-        cached_sym.requires_grad = False
-        return cached_outs, cached_outputs, cached_sym
-    return cached_outs, cached_outputs
+        cached_sym = torch.cat([x[2] for x in cached_batches])
+
+    torch.cuda.empty_cache()
+
     # if keep_gpu:
     #     cached_outs = cached_outs.to(device)
-    #     cached_outputs = cached_outputs.to(device)
+    #     cached_outputs_to_device = {key: value.to(device) for key, value in cached_outputs.items()}
+    #     # cached_outputs = cached_outputs.to(device)
+    #
     #     if input_prob:
     #         cached_sym = cached_sym.to(device)
     # if input_prob:
@@ -81,6 +96,17 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
     #     cached_sym.requires_grad = False
     #     return cached_outs, cached_outputs, cached_sym
     # return cached_outs, cached_outputs
+
+    if keep_gpu:
+        cached_outs = cached_outs.to(device)
+        cached_outputs = cached_outputs.to(device)
+        if input_prob:
+            cached_sym = cached_sym.to(device)
+    if input_prob:
+        cached_outs.requires_grad = False
+        cached_sym.requires_grad = False
+        return cached_outs, cached_outputs, cached_sym
+    return cached_outs, cached_outputs
 
 """   
     这段Python代码定义了一个名为 save_inp_oup_data 的函数，它的作用是:
@@ -105,7 +131,7 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
     得到校准数据集的输入
 """
 def save_inp_oup_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock], cali_data: torch.Tensor,
-                      batch_size: int = 32, keep_gpu: bool = True,
+                      batch_size: int = 4, keep_gpu: bool = True,
                       input_prob: bool = False):
     """
     Save input data and output data of a particular layer/block over calibration dataset.
@@ -135,7 +161,7 @@ def save_inp_oup_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBloc
     #     cached_batches.append(cur_inp.cpu())
     #
     # cached_inps = torch.cat([x for x in cached_batches])
-    # torch.cuda.empty_cache()kks
+    # torch.cuda.empty_cache()
     #
     # if keep_gpu:
     #     cached_inps = cached_inps.to(device)
@@ -143,8 +169,20 @@ def save_inp_oup_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBloc
 
     # cali_data = torch.from_numpy(cali_data)
     # TODO 这里可能需要修改成像之前那样分批次的，否则大了会爆显存
-    cached_inps = get_inp_out(cali_data)
+    # cached_inps = get_inp_out(cali_data)
+    # torch.cuda.empty_cache()
+    # if keep_gpu:
+    #     cached_inps = cached_inps.to(device)
+    # return cached_inps
+    num_batches = max(1, int(cali_data["pts_input"].size(0) / batch_size))
+
+    for i in range(num_batches):
+        cur_dict = {"pts_input": cali_data["pts_input"][i * batch_size:min((i + 1) * batch_size, cali_data["pts_input"].size(0))]}
+        cur_inp = get_inp_out(cur_dict)
+        cached_batches.append(cur_inp.cpu())
+    cached_inps = torch.cat([x for x in cached_batches])
     torch.cuda.empty_cache()
+
     if keep_gpu:
         cached_inps = cached_inps.to(device)
     return cached_inps
@@ -400,10 +438,10 @@ class GetDcFpLayerInpOut:
 
         """如果开启DC校正"""
 
-        output_fp_dict_detach = {key: value.detach() for key, value in output_fp.items()}
+        # output_fp_dict_detach = {key: value.detach() for key, value in output_fp.items()}
 
         # TODO pointnet的输出是一个tuple,我们只需要output_fp[0]作为pred ,PointRCNN也不一样，具体看下怎么弄
         if self.input_prob:
-            return  out_fp.detach(), output_fp_dict_detach, para_input.detach()
-        return out_fp.detach(), output_fp_dict_detach
+            return  out_fp.detach(), out_fp.detach(), para_input.detach()
+        return out_fp.detach(), out_fp.detach()
 

@@ -1093,10 +1093,10 @@ def eval_single_ckpt(root_result_dir):
     """
         把模型进行量化，得到量化后的模型进行test
     """
-    # qnn = None
-    # with torch.enable_grad():
-    #     qnn = get_qnn_model(model)
-    qnn = get_qnn_model(model)
+    qnn = None
+    with torch.enable_grad():
+        qnn = get_qnn_model(model)
+    # qnn = get_qnn_model(model)
 
     # start evaluation
     eval_one_epoch(qnn, test_loader, epoch_id, root_result_dir, logger)
