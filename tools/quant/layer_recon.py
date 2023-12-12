@@ -112,8 +112,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         cached_output : FP模型最终的输出
         cur_syms : A_{l-1}^{DC} (数据做了DC校准之后的数据)
     """
-    cached_outs, cached_output, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
-                                        input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
+    # cached_outs, cached_output, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
+    #                                     input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
 
     """
         cached_inps.size(0) ： 1024

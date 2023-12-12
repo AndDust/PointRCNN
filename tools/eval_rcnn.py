@@ -91,9 +91,9 @@ parser.add_argument('--data_path', default='/home/nku524/dl/dataset/imageNet-1k'
     n_bits_a ： 激活量化位宽
     channel_wise ： 权重是否按通道量化，默认为True
 """
-parser.add_argument('--n_bits_w', default=4, type=int, help='bitwidth for weight quantization')
+parser.add_argument('--n_bits_w', default=8, type=int, help='bitwidth for weight quantization')
 parser.add_argument('--channel_wise', default=True, help='apply channel_wise quantization for weights')
-parser.add_argument('--n_bits_a', default=4, type=int, help='bitwidth for activation quantization')
+parser.add_argument('--n_bits_a', default=8, type=int, help='bitwidth for activation quantization')
 parser.add_argument('--disable_8bit_head_stem', action='store_true')
 
 """权重校准参数"""
@@ -575,7 +575,7 @@ def eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger):
                     total_gt_bbox, cur_recall))
         ret_dict['rpn_recall(thresh=%.2f)' % thresh] = cur_recall
     logger.info('result is saved to: %s' % result_dir)
-    logger.info(f'----------量化参数： W{args.n_bits_w}A{args.n_bits_a}')
+    print(f'----------量化参数： W{args.n_bits_w}A{args.n_bits_a}')
 
     return ret_dict
 
@@ -779,6 +779,7 @@ def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger):
         ret_dict.update(ap_dict)
 
     logger.info('result is saved to: %s' % result_dir)
+    print(f'----------量化参数： W{args.n_bits_w}A{args.n_bits_a}')
 
     return ret_dict
 
@@ -1007,6 +1008,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger):
         ret_dict.update(ap_dict)
 
     logger.info('result is saved to: %s' % result_dir)
+    print(f'----------量化参数： W{args.n_bits_w}A{args.n_bits_a}')
     return ret_dict
 
 
@@ -1091,11 +1093,11 @@ def eval_single_ckpt(root_result_dir):
     """
         把模型进行量化，得到量化后的模型进行test
     """
-    qnn = None
-    with torch.enable_grad():
-        qnn = get_qnn_model(model)
+    # qnn = None
+    # with torch.enable_grad():
+    #     qnn = get_qnn_model(model)
+    qnn = get_qnn_model(model)
 
-    # TODO 把test_loader换成训练集的数据
     # start evaluation
     eval_one_epoch(qnn, test_loader, epoch_id, root_result_dir, logger)
 
