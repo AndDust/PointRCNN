@@ -91,9 +91,9 @@ parser.add_argument('--data_path', default='/home/nku524/dl/dataset/imageNet-1k'
     n_bits_a ： 激活量化位宽
     channel_wise ： 权重是否按通道量化，默认为True
 """
-parser.add_argument('--n_bits_w', default=8, type=int, help='bitwidth for weight quantization')
+parser.add_argument('--n_bits_w', default=4, type=int, help='bitwidth for weight quantization')
 parser.add_argument('--channel_wise', default=True, help='apply channel_wise quantization for weights')
-parser.add_argument('--n_bits_a', default=8, type=int, help='bitwidth for activation quantization')
+parser.add_argument('--n_bits_a', default=4, type=int, help='bitwidth for activation quantization')
 parser.add_argument('--disable_8bit_head_stem', action='store_true')
 
 """权重校准参数"""
@@ -163,7 +163,7 @@ parser.add_argument(
 parser.add_argument(
     '--record', type=str, help='', default="")
 parser.add_argument(
-    '--pointRCNN_num_samples', type=int, help='', default=4)
+    '--pointRCNN_num_samples', type=int, help='', default=8)
 
 parser.add_argument("--rcnn_training_roi_dir", type=str, default=None,
                     help='specify the saved rois for rcnn training when using rcnn_offline mode')
@@ -191,17 +191,6 @@ def create_PointRCNN_dataloader(logger):
                               num_workers=args.workers, shuffle=True, collate_fn=train_set.collate_batch,
                               drop_last=True)
 
-    # if args.train_with_eval:
-    #     test_set = KittiRCNNDataset(root_dir=DATA_PATH, npoints=cfg.RPN.NUM_POINTS, split=cfg.TRAIN.VAL_SPLIT, mode='EVAL',
-    #                                 logger=logger,
-    #                                 classes=cfg.CLASSES,
-    #                                 rcnn_eval_roi_dir=args.rcnn_eval_roi_dir,
-    #                                 rcnn_eval_feature_dir=args.rcnn_eval_feature_dir)
-    #     test_loader = DataLoader(test_set, batch_size=1, shuffle=True, pin_memory=True,
-    #                              num_workers=args.workers, collate_fn=test_set.collate_batch)
-    # else:
-    #     test_loader = None
-    # return train_loader, test_loader
     return train_loader
 
 def get_train_samples(train_loader, num_samples):
@@ -249,27 +238,6 @@ def get_train_samples(train_loader, num_samples):
 
 
 def get_qnn_model(PointRCNN_model):
-
-    # load model
-    # 加载模型
-    # if args.cfg_file is not None:
-    #     cfg_from_file(args.cfg_file)
-    # cfg.TAG = os.path.splitext(os.path.basename(args.cfg_file))[0]
-    #
-    # if args.eval_mode == 'rpn':
-    #     cfg.RPN.ENABLED = True
-    #     cfg.RCNN.ENABLED = False
-    #     root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
-    # elif args.eval_mode == 'rcnn':
-    #     cfg.RCNN.ENABLED = True
-    #     cfg.RPN.ENABLED = cfg.RPN.FIXED = True
-    #     root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-    # elif args.eval_mode == 'rcnn_offline':
-    #     cfg.RCNN.ENABLED = True
-    #     cfg.RPN.ENABLED = False
-    #     root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-    # else:
-    #     raise NotImplementedError
 
     root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
     if args.output_dir is not None:
@@ -322,7 +290,7 @@ def get_qnn_model(PointRCNN_model):
     PointRCNN_dataloader = create_PointRCNN_dataloader(logger)
     pointnet_cali_data = get_train_samples(PointRCNN_dataloader, num_samples=args.pointRCNN_num_samples)
 
-    # cali_data, cali_target = get_train_samples(train_loader, num_samples=args.num_samples)
+    # cali_data, cali_target = get_rain_samples(train_loader, num_samples=args.num_samples)
     device = next(qnn.parameters()).device
 
     # Kwargs for weight rounding calibration

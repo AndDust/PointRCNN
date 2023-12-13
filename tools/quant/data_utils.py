@@ -357,7 +357,7 @@ class GetDcFpLayerInpOut:
 
         assert len(hooks) == len(self.bn_stats)
 
-        model_input_tensor = {key: value.to(self.device) for key, value in model_input.items()}
+        # model_input_tensor = {key: value.to(self.device) for key, value in model_input.items()}
         with torch.no_grad():
             try:
                 # output_fp = self.model(model_input.to(self.device))
