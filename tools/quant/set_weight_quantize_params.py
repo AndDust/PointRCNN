@@ -26,8 +26,10 @@ def get_init(model, block, cali_data, batch_size, input_prob: bool = False, keep
     cached_sym : fp输入经过DC后，再输入到fp layer的输入
 """
 def get_dc_fp_init(model, block, cali_data, batch_size, input_prob: bool = False, keep_gpu: bool=True, lamb=50, bn_lr=1e-3):
-    cached_outs, cached_outputs, cached_sym = save_dc_fp_data(model, block, cali_data, batch_size, input_prob=input_prob, keep_gpu=keep_gpu, lamb=lamb, bn_lr=bn_lr)
-    return cached_outs, cached_outputs, cached_sym
+    cached_outs, cached_sym = save_dc_fp_data(model, block, cali_data, batch_size, input_prob=input_prob, keep_gpu=keep_gpu, lamb=lamb, bn_lr=bn_lr)
+    return cached_outs, cached_sym
+    # cached_outs, cached_outputs, cached_sym = save_dc_fp_data(model, block, cali_data, batch_size, input_prob=input_prob, keep_gpu=keep_gpu, lamb=lamb, bn_lr=bn_lr)
+    # return cached_outs, cached_outputs, cached_sym
 
 def set_weight_quantize_params(model):
     for module in model.modules():

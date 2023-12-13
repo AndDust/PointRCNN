@@ -70,17 +70,19 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
         if input_prob:
             # 进行DC分布校准
             cur_out, out_fp, cur_sym = get_inp_out(cur_data)
-            cached_batches.append((cur_out.cpu(), out_fp.cpu(), cur_sym.cpu()))
+            cached_batches.append((cur_out.cpu(), cur_sym.cpu()))
+            # cached_batches.append((cur_out.cpu(), out_fp.cpu(), cur_sym.cpu()))
         else:
             # 不进行DC分布校正
             cur_out, out_fp = get_inp_out(cur_data)
-            cached_batches.append((cur_out.cpu(), out_fp.cpu()))
+            cached_batches.append((cur_out.cpu()))
+            # cached_batches.append((cur_out.cpu(), out_fp.cpu()))
 
     # 拼接多个batch
     cached_outs = torch.cat([x[0] for x in cached_batches])
-    cached_outputs = torch.cat([x[1] for x in cached_batches])
+    # cached_outputs = torch.cat([x[1] for x in cached_batches])
     if input_prob:
-        cached_sym = torch.cat([x[2] for x in cached_batches])
+        cached_sym = torch.cat([x[1] for x in cached_batches])
 
     torch.cuda.empty_cache()
 
@@ -99,14 +101,14 @@ def save_dc_fp_data(model: QuantModel, layer: Union[QuantModule, BaseQuantBlock]
 
     if keep_gpu:
         cached_outs = cached_outs.to(device)
-        cached_outputs = cached_outputs.to(device)
+        # cached_outputs = cached_outputs.to(device)
         if input_prob:
             cached_sym = cached_sym.to(device)
     if input_prob:
         cached_outs.requires_grad = False
         cached_sym.requires_grad = False
-        return cached_outs, cached_outputs, cached_sym
-    return cached_outs, cached_outputs
+        return cached_outs,  cached_sym
+    return cached_outs
 
 """   
     这段Python代码定义了一个名为 save_inp_oup_data 的函数，它的作用是:
