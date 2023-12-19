@@ -35,9 +35,21 @@ import glob
 import time
 from tensorboardX import SummaryWriter
 import tqdm
+import random
 
 
 np.random.seed(1024)  # set the same seed
+
+
+def seed_all(seed=1029):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    # np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 parser = argparse.ArgumentParser(description="arg parser")
 parser.add_argument('--cfg_file', type=str, default='/home/nku524/dl/codebase/PointRCNN/tools/cfgs/default.yaml', help='specify the config for evaluation')
@@ -91,9 +103,9 @@ parser.add_argument('--data_path', default='/home/nku524/dl/dataset/imageNet-1k'
     n_bits_a ： 激活量化位宽
     channel_wise ： 权重是否按通道量化，默认为True
 """
-parser.add_argument('--n_bits_w', default=4, type=int, help='bitwidth for weight quantization')
+parser.add_argument('--n_bits_w', default=8, type=int, help='bitwidth for weight quantization')
 parser.add_argument('--channel_wise', default=True, help='apply channel_wise quantization for weights')
-parser.add_argument('--n_bits_a', default=4, type=int, help='bitwidth for activation quantization')
+parser.add_argument('--n_bits_a', default=8, type=int, help='bitwidth for activation quantization')
 parser.add_argument('--disable_8bit_head_stem', action='store_true')
 
 """权重校准参数"""
@@ -173,9 +185,12 @@ parser.add_argument("--gt_database", type=str, default='gt_database/train_gt_dat
                     help='generated gt database for augmentation')
 
 
+
 args = parser.parse_args()
 
 torch.cuda.set_device(0)
+
+seed_all(1000)
 
 def create_PointRCNN_dataloader(logger):
     DATA_PATH = os.path.join('../', 'data')
