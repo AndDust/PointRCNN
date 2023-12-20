@@ -112,8 +112,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         cached_output : FP模型最终的输出
         cur_syms : A_{l-1}^{DC} (数据做了DC校准之后的数据)
     """
-    # cached_outs, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
-    #                                     input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
+    cached_outs, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
+                                        input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
 
     """
         cached_inps.size(0) ： 1024
@@ -122,15 +122,11 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         把这个输入送入这个layer，利用校准数据集，对于激活去初始化得到一个scale
     """
     set_act_quantize_params(layer, cali_data=cached_inps[:min(256, cached_inps.size(0))])
-
-
-    return
-
-    # if num != a_count:
+    # if num != a_count:sk
     #     print(f"第{num}个算子，完成了激活初始化，该层不执行重构")
     #     return
 
-    # print(f"第{num}个算子，该层重构！！！")
+    # print(f"第{num}个算子，该层重构！！ ！")
     '''set state'''
 
     cur_weight, cur_act = True, True
@@ -209,7 +205,7 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         
         来优化激活比例因子以及舍入策略参数\theta
     """
-    for i in range(20000):
+    for i in range(50):
         """
             生成一个形状为 (batch_size,) 的一维张量，其中每个元素都是从 0 到 sz 的随机整数。
             batch_size : 32
