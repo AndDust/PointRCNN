@@ -31,7 +31,7 @@ parser.add_argument("--eval_mode", type=str, default='rcnn', required=False, hel
 
 parser.add_argument('--eval_all', action='store_true', default=False, help='whether to evaluate all checkpoints')
 parser.add_argument('--test', action='store_true', default=False, help='evaluate without ground truth')
-parser.add_argument("--ckpt", type=str, default="PointRCNN.pth", help="specify a checkpoint to be evaluated")
+parser.add_argument("--ckpt", type=str, default="/home/nku524/dl/codebase/PointRCNN/PointRCNN.pth", help="specify a checkpoint to be evaluated")
 parser.add_argument("--rpn_ckpt", type=str, default=None, help="specify the checkpoint of rpn if trained separated")
 parser.add_argument("--rcnn_ckpt", type=str, default=None, help="specify the checkpoint of rcnn if trained separated")
 
