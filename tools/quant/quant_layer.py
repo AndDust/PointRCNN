@@ -540,6 +540,8 @@ class QuantModule(nn.Module):
         if self.use_weight_quant:
             """对权重进行量化"""
             pre = self.weight
+            if torch.max(pre) > 20:
+                print("大权重：{}".format(pre))
             # print("量化之前权重：{}",format(self.weight))
             weight = self.weight_quantizer(self.weight)
             latter = weight
@@ -601,12 +603,21 @@ class QuantModule(nn.Module):
             # print("++++++++++++self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
             latter = out
             # if self.count == 0:
-            if torch.max(pre) > 100:
+
+            # if torch.max(pre) > 100:
+            #     print("pre:{}".format(pre))
+            #     print("latter:{}".format(latter))
+            #     torch.set_printoptions(precision=8, sci_mode=False)
+            #     print("激活量化前后相减：{}".format((latter - pre)))
+
+            # self.count +=1
+
+            if torch.max((latter - pre)) > 100:
                 print("pre:{}".format(pre))
                 print("latter:{}".format(latter))
-                torch.set_printoptions(precision=8, sci_mode=False)
+                # torch.set_printoptions(precision=8, sci_mode=False)
                 print("激活量化前后相减：{}".format((latter - pre)))
-            # self.count +=1
+                print("scale的值是：{}".format(self.act_quantizer.delta))
 
         out = self.norm_function(out)
         out = self.activation_function(out)
