@@ -152,10 +152,21 @@ class QuantModel(nn.Module):
     """
     def disable_network_output_quantization(self):
         module_list = []
-        for m in self.model.modules():
+        cout = 0
+        for name, m in self.model.named_modules():
             if isinstance(m, QuantModule):
+                cout +=1
                 module_list += [m]
+            """
+                只准对conv + BN +relu这样的组件开启激活量化，其他的禁用
+            """
+            if isinstance(m, QuantModule) and isinstance(m.norm_function, (nn.BatchNorm2d, nn.BatchNorm1d)):
+                print("{}该层应该使用激活量化：{}".format(cout, name))
+            if isinstance(m, QuantModule) and not isinstance(m.norm_function, (nn.BatchNorm2d, nn.BatchNorm1d)):
+                print("{}该层禁用了激活量化：{}".format(cout, name))
+                m.disable_act_quant = True
         module_list[-1].disable_act_quant = True
+        print(len(module_list))
 
 
 class PointnetQuantModel(nn.Module):

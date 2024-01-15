@@ -348,7 +348,7 @@ class GetDcFpLayerInpOut:
         hooks = []
         hook_handles = []
 
-        print(list(self.layer.named_modules()))
+        # print(list(self.layer.named_modules()))
         for name, module in self.layer.named_modules():
             if isinstance(module, nn.BatchNorm2d):
                 hook = input_hook()

@@ -287,7 +287,7 @@ def get_qnn_model(PointRCNN_model):
     """
        qnn是经过BN fold和开启量化状态的 （is_fusing=True）
     """
-    qnn = QuantModel(model=PointRCNN_model, weight_quant_params=wq_params, act_quant_params=aq_params)
+    qnn = QuantModel(model=PointRCNN_model, weight_quant_params=wq_params, act_quant_params=aq_params, is_fusing=False)
     qnn.cuda()
     qnn.eval()
 

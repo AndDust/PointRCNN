@@ -97,8 +97,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         得到输入qnn该layer的inputs  cached_inps.shape : torch.Size([1024, 3, 224, 224])
         cached_inps ： \hat{A_{l-1}} 相当于去取论文中图3中的A_{l-1}^{FP}
     """
-    cached_inps = get_init(model, layer, cali_data, batch_size=batch_size,
-                                        input_prob=True, keep_gpu=keep_gpu)
+    # cached_inps = get_init(model, layer, cali_data, batch_size=batch_size,
+    #                                     input_prob=True, keep_gpu=keep_gpu)
 
     """
         这一步输入fp_model和fp_layer
@@ -112,8 +112,8 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         cached_output : FP模型最终的输出
         cur_syms : A_{l-1}^{DC} (数据做了DC校准之后的数据)
     """
-    cached_outs, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
-                                        input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
+    # cached_outs, cur_syms = get_dc_fp_init(fp_model, fp_layer, cali_data, batch_size=batch_size,
+    #                                     input_prob=True, keep_gpu=keep_gpu, bn_lr=bn_lr, lamb=lamb_c)
 
     """
         cached_inps.size(0) ： 1024
@@ -121,13 +121,15 @@ def layer_reconstruction(model: QuantModel, fp_model: QuantModel, layer: QuantMo
         
         把这个输入送入这个layer，利用校准数据集，对于激活去初始化得到一个scale
     """
-    set_act_quantize_params(layer, cali_data=cached_inps[:min(256, cached_inps.size(0))])
+    set_act_quantize_params(layer, None, 100)
     # if num != a_count:sk
     #     print(f"第{num}个算子，完成了激活初始化，该层不执行重构")
     #     return
 
     # print(f"第{num}个算子，该层重构！！ ！")
     '''set state'''
+
+    return
 
     cur_weight, cur_act = True, True
 
