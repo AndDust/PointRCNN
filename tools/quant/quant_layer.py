@@ -539,8 +539,16 @@ class QuantModule(nn.Module):
         # 使用权重量化
         if self.use_weight_quant:
             """对权重进行量化"""
+            pre = self.weight
+            # print("量化之前权重：{}",format(self.weight))
             weight = self.weight_quantizer(self.weight)
+            latter = weight
+            # print("量化之后的权重：{}", format(weight))
             bias = self.bias
+
+            # if self.count == 0:
+            #     torch.set_printoptions(precision=8, sci_mode=False)
+            # print("权重量化前后之差：{}".format(latter - pre))
         # 不使用权重量化
         else:
             weight = self.org_weight
@@ -585,17 +593,19 @@ class QuantModule(nn.Module):
         if self.disable_act_quant:
             """对于非conv+BN+Relu结构的模块只进行权重量化，不进行激活的量化"""
             out = out
-            print("------------self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
+            # print("------------self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
 
         if self.use_act_quant and not self.disable_act_quant:
             pre = out
             out = self.act_quantizer(out)
-            print("++++++++++++self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
+            # print("++++++++++++self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
             latter = out
             # if self.count == 0:
-            #     # print("pre:{}".format(pre))
-            #     # print("latter:{}".format(latter))
-            #     print("++++++++++++++:{}".format(a))
+            if torch.max(pre) > 100:
+                print("pre:{}".format(pre))
+                print("latter:{}".format(latter))
+                torch.set_printoptions(precision=8, sci_mode=False)
+                print("激活量化前后相减：{}".format((latter - pre)))
             # self.count +=1
 
         out = self.norm_function(out)
