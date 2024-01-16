@@ -34,14 +34,13 @@ def set_act_quantize_params(module: Union[QuantModel, QuantModule, BaseQuantBloc
         var = module.norm_function.running_var
 
         """使用绝对值"""
-        module.act_quantizer.bn_estimate_abs_max = torch.abs(torch.max(mean + 3 * torch.sqrt(var)))
+        module.act_quantizer.bn_estimate_abs_max = torch.max(torch.abs(mean + 3 * torch.sqrt(var)))
         print("bn_estimate_abs_max:{}".format(module.act_quantizer.bn_estimate_abs_max))
 
         module.act_quantizer.delta = 2 * module.act_quantizer.bn_estimate_abs_max / (module.act_quantizer.n_levels - 1)
         module.act_quantizer.zero_point = 0
 
         print("设置后delta:{}".format(module.act_quantizer.delta))
-        print("计算的估计值：{}".format(module.act_quantizer.bn_estimate_abs_max))
 
         # C = out.shape[1]
         # op = None

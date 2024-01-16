@@ -167,11 +167,34 @@ class UniformAffineQuantizer(nn.Module):
             x_quant = torch.clamp(x_int, -self.n_levels / 2, self.n_levels / 2 - 1)
         else:
             x_quant = torch.clamp(x_int, 0, self.n_levels - 1)
+
+
+        # if self.is_act:
+        #     print("delta:{}".format(self.delta))
+
         """
             反量化
         """
         x_dequant = (x_quant - self.zero_point) * self.delta
         """"""
+
+        # if self.is_act:
+        #     if self.delta.item() < 0.07239 and self.delta.item() > 0.07237:
+        #         # print("x_int:{}".format(x_int))
+        #         # print("x_quant:{}".format(x_quant))
+        #         # print("clamp:{},{}".format(-self.n_levels / 2, self.n_levels / 2 - 1))
+        #         print("self.delta:{} self.zero_point:{}".format(self.delta, self.zero_point))
+        #         print("x:{}".format(x))
+        #         print("x_dequant:{}".format(x_dequant))
+        #
+        #     if self.delta.item() < 7 and self.delta.item() > 5:
+        #         # print("x_int:{}".format(x_int))
+        #         # print("x_quant:{}".format(x_quant))
+        #         # print("clamp:{},{}".format(-self.n_levels / 2, self.n_levels / 2 - 1))
+        #         print("self.delta:{} self.zero_point:{}".format(self.delta, self.zero_point))
+        #         print("x:{}".format(x))
+        #         print("x_dequant:{}".format(x_dequant))
+
         if self.is_training and self.prob < 1.0:
             """训练过程，并有丢弃"""
             x_ans = torch.where(torch.rand_like(x) < self.prob, x_dequant, x)
@@ -612,12 +635,12 @@ class QuantModule(nn.Module):
 
             # self.count +=1
 
-            if torch.max((latter - pre)) > 100:
-                print("pre:{}".format(pre))
-                print("latter:{}".format(latter))
-                # torch.set_printoptions(precision=8, sci_mode=False)
-                print("激活量化前后相减：{}".format((latter - pre)))
-                print("scale的值是：{}".format(self.act_quantizer.delta))
+            # if torch.max((latter - pre)) > 100:
+            #     print("pre:{}".format(torch.flatten(pre)[:10]))
+            #     print("latter:{}".format(torch.flatten(latter)[:10]))
+            #     # torch.set_printoptions(precision=8, sci_mode=False)
+            #     print("激活量化前后相减：{}".format(torch.flatten((latter - pre))[:10]))
+            #     print("scale的值是：{}".format(self.act_quantizer.delta))
 
         out = self.norm_function(out)
         out = self.activation_function(out)
