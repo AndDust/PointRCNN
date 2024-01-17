@@ -108,6 +108,7 @@ class UniformAffineQuantizer(nn.Module):
         '''do like dropout'''
         self.prob = prob
         self.is_training = False
+        self.bn_estimate_abs_max = 0
 
     def set_inited(self, inited: bool = True):  # inited manually
         self.inited = inited
@@ -538,14 +539,18 @@ class QuantModule(nn.Module):
 
         out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
 
+
+
+        if self.disable_act_quant:
+            out = out
+        if self.use_act_quant:
+            out = self.act_quantizer(out)
+
         # disable act quantization is designed for convolution before elemental-wise operation,
         # in that case, we apply activation function and quantization after ele-wise op.
         out = self.norm_function(out)
         out = self.activation_function(out)
-        if self.disable_act_quant:
-            return out
-        if self.use_act_quant:
-            out = self.act_quantizer(out)
+
         return out
 
     def set_quant_state(self, weight_quant: bool = False, act_quant: bool = False):
