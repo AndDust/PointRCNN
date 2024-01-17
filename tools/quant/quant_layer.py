@@ -539,7 +539,37 @@ class QuantModule(nn.Module):
 
         out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
 
+        if self.act_quantizer.inited == False:
+            print("out.shape:{}".format(out.shape))
 
+        if self.act_quantizer.inited == False and isinstance(self.norm_function,(nn.BatchNorm2d, nn.BatchNorm1d)):
+            mean = self.norm_function.running_mean
+            var = self.norm_function.running_var
+
+            C = out.shape[1]
+            op = None
+            if out.dim() == 4:
+                op = out.permute(0, 2, 3, 1)
+                op = op.reshape(-1, C)
+            else:
+                op = out
+
+
+
+            # k = int(0.999 * op.size(0))
+            # percentile_90, _ = torch.kthvalue(op, k, dim=0)
+            # print("conv输出得到的99.9分位值：{}".format(torch.max(percentile_90)))
+
+            max_values_dim2, max_indices_dim2 = torch.max(op, dim=0)
+            print("conv输出得到的最大值：{}".format(torch.max(max_values_dim2)))
+
+            print("BN层数据估计出来的最大值：{}".format(torch.max(mean + 3*torch.sqrt(var))))
+
+            print("conv输出得到的最小值：{}".format(torch.min(max_values_dim2)))
+            print("BN层数据估计出来的最小值：{}".format(torch.max(mean - 3 * torch.sqrt(var))))
+            #
+            # self.act_quantizer.bn_estimate_abs_max = mean + 3*torch.sqrt(var)
+            # print("bn_estimate_abs_max:{}".format(self.act_quantizer.bn_estimate_abs_max))
 
         if self.disable_act_quant:
             out = out
