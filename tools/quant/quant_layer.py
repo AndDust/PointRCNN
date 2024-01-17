@@ -3,6 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Union
 
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 """
     直通
 """
@@ -542,7 +546,7 @@ class QuantModule(nn.Module):
         if self.act_quantizer.inited == False:
             print("out.shape:{}".format(out.shape))
 
-        if self.act_quantizer.inited == False and isinstance(self.norm_function,(nn.BatchNorm2d, nn.BatchNorm1d)):
+        if self.act_quantizer.inited == True and isinstance(self.norm_function,(nn.BatchNorm2d, nn.BatchNorm1d)):
             mean = self.norm_function.running_mean
             var = self.norm_function.running_var
 
@@ -554,8 +558,6 @@ class QuantModule(nn.Module):
             else:
                 op = out
 
-
-
             # k = int(0.999 * op.size(0))
             # percentile_90, _ = torch.kthvalue(op, k, dim=0)
             # print("conv输出得到的99.9分位值：{}".format(torch.max(percentile_90)))
@@ -563,10 +565,28 @@ class QuantModule(nn.Module):
             max_values_dim2, max_indices_dim2 = torch.max(op, dim=0)
             print("conv输出得到的最大值：{}".format(torch.max(max_values_dim2)))
 
+            if torch.max(max_values_dim2) < -200:
+                batch = out.shape[0]
+                o = out.reshape(batch, -1)
+                for i in range(batch):
+                    tem = o[i]
+
+                sns.histplot(tem.cpu().numpy(), bins=50, kde=False, color='green')
+
+                # 设置图表标题和轴标签
+                plt.title('Histogram of a 1D Tensor with Seaborn')
+                plt.xlabel('Values')
+                plt.ylabel('Frequency')
+
+                # 显示图表
+                plt.show()
+
             print("BN层数据估计出来的最大值：{}".format(torch.max(mean + 3*torch.sqrt(var))))
 
             print("conv输出得到的最小值：{}".format(torch.min(max_values_dim2)))
             print("BN层数据估计出来的最小值：{}".format(torch.max(mean - 3 * torch.sqrt(var))))
+
+
             #
             # self.act_quantizer.bn_estimate_abs_max = mean + 3*torch.sqrt(var)
             # print("bn_estimate_abs_max:{}".format(self.act_quantizer.bn_estimate_abs_max))
