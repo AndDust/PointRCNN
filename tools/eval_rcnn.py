@@ -357,7 +357,7 @@ def get_qnn_model(PointRCNN_model):
         开始校准
     """
     # Start calibration
-    recon_model(qnn, fp_model)
+    # recon_model(qnn, fp_model)
     #
     """qnn设置量化状态为True"""
     qnn.set_quant_state(weight_quant=True, act_quant=True)

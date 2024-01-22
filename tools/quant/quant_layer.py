@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import time
 
 """
     直通
@@ -544,21 +545,37 @@ class QuantModule(nn.Module):
 
         out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
 
+        print("-----out输出shape:{}".format(out.shape))
+
         if self.act_quantizer.is_act and self.use_act_quant:
             print("++++++++++++:{}".format(self.quant_name))
-            # batch = out.shape[0]
-            # o = out.reshape(batch, -1)
-            # for i in range(batch):
-            #     tem = o[i]
 
-            # sns.histplot(out.flatten().cpu().detach().numpy(), bins=100, kde=False, color='blue')
-            # # 设置图表标题和轴标签
-            # plt.title('after conv:{}'.format(self.quant_name))
-            # plt.xlabel('Values')
-            # plt.ylabel('Frequency')
+            # channels = 0
+            # if out.dim() == 3:
+            #     channels = out.shape[1]
+            #     o = out.permute(1, 0, 2)
+            #     o = o.reshape(channels, -1)
+            #     print("3展开后：{}".format(o.shape))
+            # if out.dim() == 4:
+            #     channels = out.shape[1]
+            #     o = out.permute(1, 0, 2, 3)
+            #     o = o.reshape(channels, -1)
+            #     print("4展开后：{}".format(o.shape))
+
+            # for i in range(channels):
+            #     tem = o[i]
             #
-            # # 显示图表
-            # plt.show()
+            #     sns.histplot(tem.flatten().cpu().detach().numpy(), bins=100, kde=False, color='blue')
+            #     # 设置图表标题和轴标签
+            #     plt.title('after conv:{} \n channel:{}'.format(self.quant_name, i))
+            #     plt.xlabel('Values')
+            #     plt.ylabel('Frequency')
+            #
+            #     # 显示图表
+            #     plt.show()
+            #     time.sleep(0.5)
+            #     plt.close()
+
         # disable act quantization is designed for convolution before elemental-wise operation,
         # in that case, we apply activation function and quantization after ele-wise op.
         out = self.norm_function(out)
@@ -594,20 +611,53 @@ class QuantModule(nn.Module):
 
             if self.act_quantizer.is_act and self.use_act_quant:
                 print("++++++++++++:{}".format(self.quant_name))
-                # out = (out -beta)/gamma
-                # batch = out.shape[0]
-                # o = out.reshape(batch, -1)
-                # for i in range(batch):
-                #     tem = o[i]
 
-                # sns.histplot(out.flatten().cpu().detach().numpy(), bins=100, kde=False, color='green')
-                # # 设置图表标题和轴标签
-                # plt.title('after BN:{}'.format(self.quant_name))
-                # plt.xlabel('Values')
-                # plt.ylabel('Frequency')
+                channels = 0
+                if out.dim() == 3:
+                    channels = out.shape[1]
+                    o = out.permute(1, 0, 2)
+                    o = o.reshape(channels, -1)
+                    print("3展开后：{}".format(o.shape))
+                if out.dim() == 4:
+                    channels = out.shape[1]
+                    o = out.permute(1, 0, 2, 3)
+                    o = o.reshape(channels, -1)
+                    print("4展开后：{}".format(o.shape))
+
+                # for i in range(channels):
+                #     tem = o[i]
                 #
-                # # 显示图表
-                # plt.show()
+                #     sns.histplot(tem.flatten().cpu().detach().numpy(), bins=100, kde=False, color='green')
+                #     # 设置图表标题和轴标签
+                #     plt.title('after BN:{} \n channel:{}'.format(self.quant_name, i))
+                #     plt.xlabel('Values')
+                #     plt.ylabel('Frequency')
+                #
+                #     # 显示图表
+                #     plt.show()
+                #     time.sleep(0.5)
+                #     plt.close()
+                max, _ = torch.max(o, dim=1)
+                # print("BN每个通道输出的最大值：{}".format(max))
+                # print("估计得到的最大值：{}".format(beta + 4 *torch.abs(gamma)))
+                # print("相减：{}".format((beta + 4 *torch.abs(gamma)) -max))
+                # a = (beta + 4 * torch.abs(gamma)) - max
+                # percent = a / (max)
+                # print("百分比：{}".format((percent *100)))
+
+                print("每个通道输出的最大值：{}".format(torch.max(max)))
+                quantile_90 = torch.quantile(max, 0.9)
+                quantile_95 = torch.quantile(max, 0.95)
+                quantile_99 = torch.quantile(max, 0.99)
+                print("90分位的数值：{}".format(quantile_90))
+                print("95分位的数值：{}".format(quantile_95))
+                print("99分位的数值：{}".format(quantile_99))
+                print("估计3倍得到的最大值：{}".format(torch.max(beta + 3 * torch.abs(gamma))))
+                print("估计4倍得到的最大值：{}".format(torch.max(beta + 4 *torch.abs(gamma))))
+                # print("相减：{}".format(torch.max((beta + 4 *torch.abs(gamma)) -max)))
+                # a = (beta + 4 * torch.abs(gamma)) - max
+                # percent = a / (max)
+                # print("百分比：{}".format((percent *100)))
 
         out = self.activation_function(out)
         if self.disable_act_quant:
