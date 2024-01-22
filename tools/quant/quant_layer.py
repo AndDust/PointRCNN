@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Union
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 """
     直通
@@ -514,6 +517,7 @@ class QuantModule(nn.Module):
 
         """一旦完成重建，就设置为True，后续就会跳过"""
         self.trained = False
+        self.quant_name = "null"
 
     """
         会在layer reconstruction中调用到，qnn前向传播时对权重进行量化
@@ -540,11 +544,70 @@ class QuantModule(nn.Module):
 
         out = self.fwd_func(input, weight, bias, **self.fwd_kwargs)
 
+        if self.act_quantizer.is_act and self.use_act_quant:
+            print("++++++++++++:{}".format(self.quant_name))
+            # batch = out.shape[0]
+            # o = out.reshape(batch, -1)
+            # for i in range(batch):
+            #     tem = o[i]
+
+            # sns.histplot(out.flatten().cpu().detach().numpy(), bins=100, kde=False, color='blue')
+            # # 设置图表标题和轴标签
+            # plt.title('after conv:{}'.format(self.quant_name))
+            # plt.xlabel('Values')
+            # plt.ylabel('Frequency')
+            #
+            # # 显示图表
+            # plt.show()
         # disable act quantization is designed for convolution before elemental-wise operation,
         # in that case, we apply activation function and quantization after ele-wise op.
         out = self.norm_function(out)
 
+        # mean = self.norm_function.running_mean
+        # var = self.norm_function.running_var
 
+        if isinstance(self.norm_function, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            gamma = self.norm_function.weight
+            beta = torch.abs(self.norm_function.bias)
+
+            # print("gamma:{}".format(gamma))
+            # print("beta:{}".format(beta))
+
+
+            # print("估计的最大值：{}".format(gamma + 3 *beta))
+            # print("gamma_shape:{}".format(gamma.shape))
+            # # print("输出的最大值：{}".format(torch.max(out, dim=1)))
+            # print("out_shape:{}".format(out.shape))
+            # channels = out.shape[1]
+            # if out.shape == 4:
+            #     out = out.permute(1, 0, 2, 3)
+            # elif out.shape == 3:
+            #     out = out.permute(1, 0, 2)
+            #
+            # out_1 = out.reshape(channels, -1)
+            #
+            # out_max, _ = torch.max(out_1, dim=1)
+            #
+            # print("out_max_shape:{}".format(out_max.shape))
+            # print("输出的最大值：{}".format(out_max))
+
+
+            if self.act_quantizer.is_act and self.use_act_quant:
+                print("++++++++++++:{}".format(self.quant_name))
+                # out = (out -beta)/gamma
+                # batch = out.shape[0]
+                # o = out.reshape(batch, -1)
+                # for i in range(batch):
+                #     tem = o[i]
+
+                # sns.histplot(out.flatten().cpu().detach().numpy(), bins=100, kde=False, color='green')
+                # # 设置图表标题和轴标签
+                # plt.title('after BN:{}'.format(self.quant_name))
+                # plt.xlabel('Values')
+                # plt.ylabel('Frequency')
+                #
+                # # 显示图表
+                # plt.show()
 
         out = self.activation_function(out)
         if self.disable_act_quant:
