@@ -609,7 +609,7 @@ class QuantModule(nn.Module):
         #
         #     print("conv输出得到的最小值：{}".format(torch.min(max_values_dim2)))
         #     print("BN层数据估计出来的最小值：{}".format(torch.max(mean - 3 * torch.sqrt(var))))
-
+        #
         #     self.act_quantizer.bn_estimate_abs_max = mean + 3*torch.sqrt(var)
         #     print("bn_estimate_abs_max:{}".format(self.act_quantizer.bn_estimate_abs_max))
 
@@ -620,11 +620,7 @@ class QuantModule(nn.Module):
             out = out
             # print("------------self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
 
-        if self.use_act_quant and not self.disable_act_quant:
-            pre = out
-            out = self.act_quantizer(out)
-            # print("++++++++++++self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
-            latter = out
+
             # if self.count == 0:
 
             # if torch.max(pre) > 100:
@@ -643,6 +639,19 @@ class QuantModule(nn.Module):
             #     print("scale的值是：{}".format(self.act_quantizer.delta))
 
         out = self.norm_function(out)
+        if self.use_act_quant and not self.disable_act_quant:
+            # print("BN后输出最大值：{}".format(torch.max(out)))
+            # print("使用BN的gamma和beta估计的最大值：{}".format(self.act_quantizer.bn_estimate_abs_max))
+            # print("scale的值是：{}".format(self.act_quantizer.delta))
+
+            pre = out
+            out = self.act_quantizer(out)
+            # print("++++++++++++self.act_quantizer.delta:{}".format(self.act_quantizer.delta))
+            # latter = out
+            # print("pre:{}".format(pre))
+            # print("latter:{}".format(latter))
+            # print("激活量化前后相减：{}".format((latter - pre)))
+
         out = self.activation_function(out)
         # if self.disable_act_quant:
         #     return out

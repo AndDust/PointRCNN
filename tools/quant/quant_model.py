@@ -166,9 +166,9 @@ class QuantModel(nn.Module):
                 print("{}该层禁用了激活量化：{}".format(cout, name))
                 m.disable_act_quant = True
 
-            if isinstance(m, QuantModule) and isinstance(m.norm_function, (nn.BatchNorm2d, nn.BatchNorm1d)) and cout == 10:
-                print("{}该层额外禁用了激活量化：{}".format(cout, name))
-                m.disable_act_quant = True
+            # if isinstance(m, QuantModule) and isinstance(m.norm_function, (nn.BatchNorm2d, nn.BatchNorm1d)) and cout == 10:
+            #     print("{}该层额外禁用了激活量化：{}".format(cout, name))
+            #     m.disable_act_quant = True
         module_list[-1].disable_act_quant = True
         print(len(module_list))
 
